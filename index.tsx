@@ -40,10 +40,12 @@ type GameState = {
   board: Matrix;
   piece: Tetromino;
   nextPiece: Tetromino;
+  gravity: number;
 };
 
 type GameStore = [GameState, React.Dispatch<Actions>];
 
+const FPS = 60;
 const GRID = 32;
 const WALLSIZE = 1;
 
@@ -125,12 +127,19 @@ const createPiece = (): Matrix => {
 
 const createRow = () => Array(10).fill("");
 
+// Tetris gravity system
+// @see https://tetris.fandom.com/wiki/Tetris_Worlds#Gravity
+const calcSpeedCurve = (level: number): number => {
+  return Math.pow(0.8 - (level - 1) * 0.007, level - 1) * FPS;
+};
+
 const createState = (): GameState => ({
   score: 0,
-  level: 0,
+  level: 1,
   piece: { matrix: createPiece(), col: 3, row: -1 },
   nextPiece: { matrix: createPiece(), col: 1, row: 0 },
   board: Array(20).fill(createRow()),
+  gravity: calcSpeedCurve(1)
 });
 
 /**
@@ -272,7 +281,7 @@ const moveLeft = (state: GameState): GameState => {
 };
 
 const rotatePiece = (state: GameState): GameState => {
-    const { piece, board } = state;
+  const { piece, board } = state;
 
   // rotate an NxN matrix 90deg
   const rotate = (matrix: Matrix): Matrix => {
@@ -298,6 +307,8 @@ const reducer = (state: GameState, action: Actions) => {
     ? moveRight(state)
     : action === Actions.rotatePiece
     ? rotatePiece(state)
+    : action === Actions.gameCycle
+    ? moveDown(state)
     : state;
 };
 
@@ -313,10 +324,26 @@ const keyHandler = (dispatch: React.Dispatch<Actions>) => (
 const GameBoard = () => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [state, dispatch] = React.useContext(GameContext);
+  const loopCount = React.useRef(state.gravity);
 
   React.useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx) drawBoard(ctx, state);
+  }, [canvasRef, state]);
+
+  // use animation frames to dispatch the game loop based on gravity
+  React.useEffect(() => {
+    let frameId: number;
+    const loop = () => {
+      frameId = requestAnimationFrame(loop);
+      if (loopCount.current > 0) --loopCount.current;
+      else {
+          dispatch(Actions.gameCycle);
+          loopCount.current = state.gravity;
+      }
+    };
+    frameId = requestAnimationFrame(loop);
+    return () => cancelAnimationFrame(frameId);
   }, [canvasRef, state]);
 
   // setup keyboard handlers
