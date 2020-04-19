@@ -6,7 +6,22 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 
 enum Actions {
-  gameLoop,
+  pauseGame,
+  resumeGame,
+  startGame,
+  moveDown,
+  moveRight,
+  moveLeft,
+  rotatePiece,
+  gameCycle,
+}
+
+enum KeyCode {
+  spaceBar = 32,
+  leftArrow = 37,
+  upArrow = 38,
+  rightArrow = 39,
+  downArrow = 40,
 }
 
 type Color = string;
@@ -115,7 +130,7 @@ const createState = (): GameState => ({
   level: 0,
   piece: { matrix: createPiece(), col: 3, row: -1 },
   nextPiece: { matrix: createPiece(), col: 1, row: 0 },
-  board: Array(20).fill(createRow())
+  board: Array(20).fill(createRow()),
 });
 
 /**
@@ -164,13 +179,13 @@ const fillBoard = (ctx: CanvasRenderingContext2D, board: Matrix): void => {
 };
 
 const drawWalls = (ctx: CanvasRenderingContext2D) => {
-      // draw walls
+  // draw walls
   ctx.fillStyle = "lightgrey";
   ctx.fillRect(0, 0, CANVAS.width, WALLSIZE);
   ctx.fillRect(0, 0, WALLSIZE, CANVAS.height);
   ctx.fillRect(CANVAS.width - WALLSIZE, 0, WALLSIZE, CANVAS.height);
   ctx.fillRect(0, CANVAS.height - WALLSIZE, CANVAS.width, WALLSIZE);
-}
+};
 
 const drawBoard = (ctx: CanvasRenderingContext2D, state: GameState) => {
   ctx.clearRect(0, 0, CANVAS.width, CANVAS.height);
@@ -180,18 +195,138 @@ const drawBoard = (ctx: CanvasRenderingContext2D, state: GameState) => {
   drawWalls(ctx);
 };
 
+/**
+ *
+ * Transducers
+ *
+ */
+
+const checkBoundary = (
+  matrix: Matrix,
+  predict: (block: Color, row: number, col: number) => boolean
+): boolean => {
+  // return false if any block in the piece is out of bounds or collides with a line on the board
+  return matrix.reduce<boolean>(
+    (prev, row, rowIdx) =>
+      row.reduce(
+        (prev, block, colIdx) => prev && predict(block, rowIdx, colIdx),
+        prev
+      ),
+    true
+  );
+};
+
+const isValidMove = (
+  board: Matrix,
+  matrix: Matrix,
+  pieceRow: number,
+  pieceCol: number
+): boolean => {
+  const blockInBounds = (block: Color, row: number, col: number): boolean => {
+    return (
+      !block ||
+      (row + pieceRow < 20 && col + pieceCol < 10 && col + pieceCol >= 0)
+    );
+  };
+  const didNotCollide = (block: Color, row: number, col: number): boolean => {
+    return (
+      !block || row + pieceRow < 0 || !board[row + pieceRow][col + pieceCol]
+    );
+  };
+  return (
+    checkBoundary(matrix, blockInBounds) && checkBoundary(matrix, didNotCollide)
+  );
+};
+
+const moveDown = (state: GameState): GameState => {
+  const { piece, board } = state;
+  const row = piece.row + 1;
+  return isValidMove(board, piece.matrix, row, piece.col)
+    ? {
+        ...state,
+        piece: { ...piece, row },
+      }
+    : state;
+};
+
+const moveRight = (state: GameState): GameState => {
+  const { piece, board } = state;
+  const col = piece.col + 1;
+  return isValidMove(board, piece.matrix, piece.row, col)
+    ? {
+        ...state,
+        piece: { ...piece, col },
+      }
+    : state;
+};
+
+const moveLeft = (state: GameState): GameState => {
+  const { piece, board } = state;
+  const col = piece.col - 1;
+  return isValidMove(board, piece.matrix, piece.row, col)
+    ? {
+        ...state,
+        piece: { ...piece, col },
+      }
+    : state;
+};
+
+const rotatePiece = (state: GameState): GameState => {
+    const { piece, board } = state;
+
+  // rotate an NxN matrix 90deg
+  const rotate = (matrix: Matrix): Matrix => {
+    const N = matrix.length - 1;
+    return matrix.map((row, i) => row.map((val, j) => matrix[N - j][i]));
+  };
+
+  const matrix = rotate(piece.matrix);
+  return isValidMove(board, matrix, piece.row, piece.col)
+    ? {
+        ...state,
+        piece: { ...state.piece, matrix },
+      }
+    : state;
+};
+
 const reducer = (state: GameState, action: Actions) => {
-  return state;
+  return action === Actions.moveDown
+    ? moveDown(state)
+    : action === Actions.moveLeft
+    ? moveLeft(state)
+    : action === Actions.moveRight
+    ? moveRight(state)
+    : action === Actions.rotatePiece
+    ? rotatePiece(state)
+    : state;
+};
+
+const keyHandler = (dispatch: React.Dispatch<Actions>) => (
+  e: KeyboardEvent
+) => {
+  if (e.keyCode === KeyCode.leftArrow) dispatch(Actions.moveLeft);
+  else if (e.keyCode === KeyCode.upArrow) dispatch(Actions.rotatePiece);
+  else if (e.keyCode === KeyCode.rightArrow) dispatch(Actions.moveRight);
+  else if (e.keyCode === KeyCode.downArrow) dispatch(Actions.moveDown);
 };
 
 const GameBoard = () => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
-  const [state] = React.useContext(GameContext);
+  const [state, dispatch] = React.useContext(GameContext);
 
   React.useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
     if (ctx) drawBoard(ctx, state);
   }, [canvasRef, state]);
+
+  // setup keyboard handlers
+  React.useEffect(() => {
+    const keyDown = keyHandler(dispatch);
+    document.addEventListener("keydown", keyDown);
+    return () => {
+      document.removeEventListener("keydown", keyDown);
+    };
+  });
 
   return <canvas ref={canvasRef} width={CANVAS.width} height={CANVAS.height} />;
 };
