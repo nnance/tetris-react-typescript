@@ -44,10 +44,10 @@ type GameState = {
 };
 
 type GameStore = [GameState, React.Dispatch<Actions>];
+type GameTransducer = (state: GameState) => GameState;
 
 const FPS = 60;
 const GRID = 32;
-const WALLSIZE = 1;
 
 const CANVAS = {
   width: 320,
@@ -107,13 +107,16 @@ const COLORS = {
   L: "orange",
 };
 
-const tetrominoToMatrix = (tetromino: number[][], color: Color): Matrix => {
-  return tetromino.map((row) => row.map((col) => (col ? color : "")));
-};
+const transform = (state: GameState, transducer: GameTransducer) =>
+  transducer(state);
 
 function getProperty<T, K extends keyof T>(o: T, propertyName: K): T[K] {
   return o[propertyName]; // o[propertyName] is of type T[K]
 }
+
+const tetrominoToMatrix = (tetromino: number[][], color: Color): Matrix => {
+  return tetromino.map((row) => row.map((col) => (col ? color : "")));  
+};  
 
 const createPiece = (): Matrix => {
   const keys = Object.keys(TETROMINOS);
@@ -288,6 +291,67 @@ const rotatePiece = (state: GameState): GameState => {
     : state;
 };
 
+/**
+ *
+ * End turn transforms
+ *
+ */
+const placePiece = (state: GameState): GameState => {
+  const { board, piece } = state;
+  const rows: Matrix = board.map((row) => [...row]);
+  if (piece) {
+    piece.matrix.forEach((row, rowIdx) =>
+      row.forEach((on, colIdx) => {
+        if (on) rows[rowIdx + piece.row][colIdx + piece.col] = on;
+      })
+    );
+  }
+  return {
+    ...state,
+    board: rows,
+  };
+};
+
+const findFullRows = (lines: Matrix): number[] => {
+  return lines.reduce((prev, row, rowIdx) => {
+    const rowCount = row.reduce((count, on) => (on ? count + 1 : count), 0);
+    return rowCount === 10 ? prev.concat([rowIdx]) : prev;
+  }, [] as number[]);
+};
+
+const pickNewPiece = (): Matrix => {
+  const keys = Object.keys(TETROMINOS);
+  const pieceIndex = Math.floor(Math.random() * keys.length);
+  const key = keys[pieceIndex] as TETROMINOCODES;
+  return tetrominoToMatrix(
+    getProperty(TETROMINOS, key),
+    getProperty(COLORS, key)
+  );
+};
+
+const selectNextGamePiece = (state: GameState): GameState => {
+  const matrix = state.nextPiece?.matrix || pickNewPiece();
+
+  return {
+    ...state,
+    piece: { matrix, col: 3, row: -1 },
+    nextPiece: {
+      matrix: pickNewPiece(),
+      col: 1,
+      row: 0,
+    },
+  };
+};
+
+const nextTurn = (state: GameState): GameState => {
+  return [placePiece, selectNextGamePiece].reduce(transform, state);
+};
+
+const gameCycle = (state: GameState): GameState => {
+  const newState = moveDown(state);
+  return newState.piece.row === state.piece.row ? nextTurn(state) : newState;
+};
+
 const reducer = (state: GameState, action: Actions) => {
   return action === Actions.moveDown
     ? moveDown(state)
@@ -298,7 +362,7 @@ const reducer = (state: GameState, action: Actions) => {
     : action === Actions.rotatePiece
     ? rotatePiece(state)
     : action === Actions.gameCycle
-    ? moveDown(state)
+    ? gameCycle(state)
     : state;
 };
 
@@ -314,7 +378,6 @@ const keyHandler = (dispatch: React.Dispatch<Actions>) => (
 const GameBoard = () => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [state, dispatch] = React.useContext(GameContext);
-  const loopCount = React.useRef(state.gravity);
 
   React.useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
@@ -324,17 +387,15 @@ const GameBoard = () => {
   // use animation frames to dispatch the game loop based on gravity
   React.useEffect(() => {
     let frameId: number;
+    let loopCount = state.gravity;
     const loop = () => {
       frameId = requestAnimationFrame(loop);
-      if (loopCount.current > 0) --loopCount.current;
-      else {
-        dispatch(Actions.gameCycle);
-        loopCount.current = state.gravity;
-      }
+      loopCount = loopCount > 0 ? loopCount - 1 : state.gravity;
+      if (loopCount === 0) dispatch(Actions.gameCycle);
     };
     frameId = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(frameId);
-  }, [canvasRef, state]);
+  }, [canvasRef]);
 
   // setup keyboard handlers
   React.useEffect(() => {
