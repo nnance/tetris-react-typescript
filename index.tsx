@@ -139,7 +139,7 @@ const createState = (): GameState => ({
   piece: { matrix: createPiece(), col: 3, row: -1 },
   nextPiece: { matrix: createPiece(), col: 1, row: 0 },
   board: Array(20).fill(createRow()),
-  gravity: calcSpeedCurve(1)
+  gravity: calcSpeedCurve(1),
 });
 
 /**
@@ -187,21 +187,11 @@ const fillBoard = (ctx: CanvasRenderingContext2D, board: Matrix): void => {
   });
 };
 
-const drawWalls = (ctx: CanvasRenderingContext2D) => {
-  // draw walls
-  ctx.fillStyle = "lightgrey";
-  ctx.fillRect(0, 0, CANVAS.width, WALLSIZE);
-  ctx.fillRect(0, 0, WALLSIZE, CANVAS.height);
-  ctx.fillRect(CANVAS.width - WALLSIZE, 0, WALLSIZE, CANVAS.height);
-  ctx.fillRect(0, CANVAS.height - WALLSIZE, CANVAS.width, WALLSIZE);
-};
-
 const drawBoard = (ctx: CanvasRenderingContext2D, state: GameState) => {
   ctx.clearRect(0, 0, CANVAS.width, CANVAS.height);
 
   fillBoard(ctx, state.board);
   drawTetronmino(ctx, state.piece);
-  drawWalls(ctx);
 };
 
 /**
@@ -338,8 +328,8 @@ const GameBoard = () => {
       frameId = requestAnimationFrame(loop);
       if (loopCount.current > 0) --loopCount.current;
       else {
-          dispatch(Actions.gameCycle);
-          loopCount.current = state.gravity;
+        dispatch(Actions.gameCycle);
+        loopCount.current = state.gravity;
       }
     };
     frameId = requestAnimationFrame(loop);
@@ -355,7 +345,14 @@ const GameBoard = () => {
     };
   });
 
-  return <canvas ref={canvasRef} width={CANVAS.width} height={CANVAS.height} />;
+  return (
+    <canvas
+      ref={canvasRef}
+      width={CANVAS.width}
+      height={CANVAS.height}
+      style={{ border: "1px solid white" }}
+    />
+  );
 };
 
 const Theme: React.FC = (props) => {
