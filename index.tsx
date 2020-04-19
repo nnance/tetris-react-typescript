@@ -6,27 +6,49 @@ import Row from "react-bootstrap/Row";
 import Col from "react-bootstrap/Col";
 
 enum Actions {
-    gameLoop
+  gameLoop,
 }
 
 type GameState = {
-    score: number;
-    level: number;
-}
+  score: number;
+  level: number;
+};
 
 type GameStore = [GameState, React.Dispatch<Actions>];
 
+const CANVAS = {
+  width: 320,
+  height: 640,
+};
+
 const createState = (): GameState => ({
-    score: 0,
-    level: 0
-})
+  score: 0,
+  level: 0,
+});
+
+const drawBoard = (ctx: CanvasRenderingContext2D) => {
+  ctx.clearRect(0, 0, CANVAS.width, CANVAS.height);
+};
 
 const reducer = (state: GameState, action: Actions) => {
-    return state;
-}
+  return state;
+};
 
 const GameBoard = () => {
-  return <canvas width="500" height="400" />;
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+
+  React.useEffect(() => {
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx) drawBoard(ctx);
+  }, [canvasRef]);
+
+  return (
+    <canvas
+      ref={canvasRef}
+      width={CANVAS.width}
+      height={CANVAS.height}
+    />
+  );
 };
 
 const Theme: React.FC = (props) => {
@@ -40,12 +62,12 @@ const Theme: React.FC = (props) => {
 
 const GameContext = React.createContext<GameStore>([createState(), () => {}]);
 
-const GameStateProvider: React.FC = props => {
-    const store = React.useReducer(reducer, createState());
-    return <GameContext.Provider value={store}>
-        {props.children}
-    </GameContext.Provider>
-}
+const GameStateProvider: React.FC = (props) => {
+  const store = React.useReducer(reducer, createState());
+  return (
+    <GameContext.Provider value={store}>{props.children}</GameContext.Provider>
+  );
+};
 
 export const App = () => (
   <Theme>
@@ -53,9 +75,11 @@ export const App = () => (
       <Container style={{ textAlign: "center" }} fluid>
         <h3 className="m-3">Tetris</h3>
         <Row>
-          <Col>
+          <Col md={4}></Col>
+          <Col md={4}>
             <GameBoard />
           </Col>
+          <Col md={4}></Col>
         </Row>
       </Container>
     </GameStateProvider>
