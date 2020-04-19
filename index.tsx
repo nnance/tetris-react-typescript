@@ -115,8 +115,8 @@ function getProperty<T, K extends keyof T>(o: T, propertyName: K): T[K] {
 }
 
 const tetrominoToMatrix = (tetromino: number[][], color: Color): Matrix => {
-  return tetromino.map((row) => row.map((col) => (col ? color : "")));  
-};  
+  return tetromino.map((row) => row.map((col) => (col ? color : "")));
+};
 
 const createPiece = (): Matrix => {
   const keys = Object.keys(TETROMINOS);
@@ -190,11 +190,15 @@ const fillBoard = (ctx: CanvasRenderingContext2D, board: Matrix): void => {
   });
 };
 
-const drawBoard = (ctx: CanvasRenderingContext2D, state: GameState) => {
+const drawBoard = (
+  ctx: CanvasRenderingContext2D,
+  board: Matrix,
+  piece: Tetromino
+) => {
   ctx.clearRect(0, 0, CANVAS.width, CANVAS.height);
 
-  fillBoard(ctx, state.board);
-  drawTetronmino(ctx, state.piece);
+  fillBoard(ctx, board);
+  drawTetronmino(ctx, piece);
 };
 
 /**
@@ -375,13 +379,41 @@ const keyHandler = (dispatch: React.Dispatch<Actions>) => (
   else if (e.keyCode === KeyCode.downArrow) dispatch(Actions.moveDown);
 };
 
+const NextPiece: React.FC = () => {
+  const canvasRef = React.useRef<HTMLCanvasElement>(null);
+  const [state] = React.useContext(GameContext);
+
+  React.useEffect(() => {
+    if (canvasRef.current) {
+      const ctx = canvasRef.current?.getContext("2d");
+      if (ctx) drawBoard(ctx, [], state.nextPiece);
+    }
+  }, [canvasRef, state]);
+
+  return (
+    <Fragment>
+      <div>
+        <b>Next Piece</b>
+        <br />
+      </div>
+      <br />
+      <canvas
+        ref={canvasRef}
+        width="160"
+        height="160"
+        style={{ color: "white" }}
+      ></canvas>
+    </Fragment>
+  );
+};
+
 const GameBoard = () => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [state, dispatch] = React.useContext(GameContext);
 
   React.useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) drawBoard(ctx, state);
+    if (ctx) drawBoard(ctx, state.board, state.piece);
   }, [canvasRef, state]);
 
   // use animation frames to dispatch the game loop based on gravity
@@ -444,7 +476,9 @@ export const App = () => (
           <Col md={4}>
             <GameBoard />
           </Col>
-          <Col md={4}></Col>
+          <Col md={4} style={{ textAlign: "left" }}>
+            <NextPiece />
+          </Col>
         </Row>
       </Container>
     </GameStateProvider>
