@@ -42,6 +42,7 @@ type GameState = {
   piece: Tetromino;
   nextPiece: Tetromino;
   gravity: number;
+  gameOver: boolean;
 };
 
 type GameStore = [GameState, React.Dispatch<Actions>];
@@ -145,6 +146,7 @@ const createState = (): GameState => ({
   nextPiece: { matrix: createPiece(), col: 1, row: 0 },
   board: Array(20).fill(createRow()),
   gravity: calcSpeedCurve(1),
+  gameOver: false,
 });
 
 /**
@@ -201,6 +203,20 @@ const drawBoard = (
 
   fillBoard(ctx, board);
   drawTetronmino(ctx, piece);
+};
+
+// show the game over screen
+const showGameOver = (ctx: CanvasRenderingContext2D) => {
+  ctx.fillStyle = "black";
+  ctx.globalAlpha = 0.75;
+  ctx.fillRect(0, CANVAS.height / 2 - 30, CANVAS.width, 60);
+
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "white";
+  ctx.font = "36px monospace";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText("GAME OVER!", CANVAS.width / 2, CANVAS.height / 2);
 };
 
 /**
@@ -388,6 +404,12 @@ const speedCurve = (state: GameState): GameState => ({
   gravity: calcSpeedCurve(state.level),
 });
 
+const endGame = (state: GameState): GameState => ({
+  ...state,
+  gravity: 0,
+  gameOver: true,
+});
+
 const eraseLines = (fullRows: number[]) => (state: GameState): GameState => {
   const eraseLine = (matrix: Matrix, idx: number): Matrix =>
     matrix.reduce(
@@ -425,6 +447,8 @@ const gameCycle = (state: GameState): GameState => {
 
   const newState = isValidMove(board, piece.matrix, piece.row + 1, piece.col)
     ? moveDown(state)
+    : piece.row < 0
+    ? endGame(state)
     : nextTurn(state);
 
   return checkFullRows(newState);
@@ -517,7 +541,10 @@ const GameBoard = () => {
 
   React.useEffect(() => {
     const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) drawBoard(ctx, state.board, state.piece);
+    if (ctx) {
+      if (state.gameOver) showGameOver(ctx);
+      else drawBoard(ctx, state.board, state.piece);
+    }
   }, [canvasRef, state]);
 
   // use animation frames to dispatch the game loop based on gravity
