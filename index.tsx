@@ -37,6 +37,7 @@ type Tetromino = {
 type GameState = {
   score: number;
   level: number;
+  lineCount: number;
   board: Matrix;
   piece: Tetromino;
   nextPiece: Tetromino;
@@ -139,6 +140,7 @@ const calcSpeedCurve = (level: number): number => {
 const createState = (): GameState => ({
   score: 0,
   level: 1,
+  lineCount: 0,
   piece: { matrix: createPiece(), col: 3, row: -1 },
   nextPiece: { matrix: createPiece(), col: 1, row: 0 },
   board: Array(20).fill(createRow()),
@@ -347,13 +349,85 @@ const selectNextGamePiece = (state: GameState): GameState => {
   };
 };
 
+/**
+ *
+ * Scoring transforms
+ *
+ */
+
+// Tetris scoring system
+// @see https://tetris.fandom.com/wiki/Scoring#Guideline_scoring_system
+const tetrisDSScoring = (lines: number) => (state: GameState): GameState => {
+  const { level } = state;
+  const score =
+    lines === 1
+      ? 100 * level
+      : lines === 2
+      ? 300 * level
+      : lines === 3
+      ? 500 * level
+      : lines === 4
+      ? 800 * level
+      : 0;
+  return {
+    ...state,
+    score: state.score + score,
+    lineCount: state.lineCount + lines,
+  };
+};
+
+const upLevel = (state: GameState): GameState => ({
+  ...state,
+  level: Math.floor(state.lineCount / 10) + 1,
+});
+
+// Tetris gravity system
+// @see https://tetris.fandom.com/wiki/Tetris_Worlds#Gravity
+const speedCurve = (state: GameState): GameState => ({
+  ...state,
+  gravity: calcSpeedCurve(state.level),
+});
+
+const eraseLines = (fullRows: number[]) => (state: GameState): GameState => {
+  const eraseLine = (matrix: Matrix, idx: number): Matrix =>
+    matrix.reduce(
+      (prev, row, rowIdx) => (rowIdx === idx ? prev : prev.concat([row])),
+      [] as Matrix
+    );
+
+  return {
+    ...state,
+    board: fullRows.reduce(
+      (prev, current) => [createRow()].concat(eraseLine(prev, current)),
+      state.board
+    ),
+  };
+};
+
 const nextTurn = (state: GameState): GameState => {
   return [placePiece, selectNextGamePiece].reduce(transform, state);
 };
 
+const checkFullRows = (state: GameState): GameState => {
+  const fullRows = findFullRows(state.board);
+  return fullRows.length
+    ? [
+        tetrisDSScoring(fullRows.length),
+        upLevel,
+        speedCurve,
+        eraseLines(fullRows),
+      ].reduce(transform, state)
+    : state;
+};
+
 const gameCycle = (state: GameState): GameState => {
-  const newState = moveDown(state);
-  return newState.piece.row === state.piece.row ? nextTurn(state) : newState;
+  const { board, piece } = state;
+
+  const newState = isValidMove(board, piece.matrix, piece.row + 1, piece.col)
+    ? moveDown(state)
+    : nextTurn(state);
+
+  return checkFullRows(newState);
 };
 
 const reducer = (state: GameState, action: Actions) => {
