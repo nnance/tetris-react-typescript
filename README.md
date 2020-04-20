@@ -2,6 +2,14 @@
 
 Simple Atari Tetris game implemented with the Canvas API in React and TypeScript.
 
+## Further Exploration
+
+- Game Controls
+  - Show game controls 
+- Game States
+  - Don't start the game automatically and support pausing and restarting
+  
+
 ## Getting Started
 
 The following steps are how to build and run the development server.
