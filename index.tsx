@@ -453,6 +453,36 @@ const keyHandler = (dispatch: React.Dispatch<Actions>) => (
   else if (e.keyCode === KeyCode.downArrow) dispatch(Actions.moveDown);
 };
 
+const Status: React.FC = () => {
+  const [state] = React.useContext(GameContext);
+  return (
+    <div style={{ float: "right" }}>
+      <table>
+        <tbody>
+          <tr>
+            <td>
+              <b>Score:</b>
+            </td>
+            <td>{state.score}</td>
+          </tr>
+          <tr>
+            <td>
+              <b>Level:</b>
+            </td>
+            <td>{state.level}</td>
+          </tr>
+          <tr>
+            <td>
+              <b>Lines:</b>
+            </td>
+            <td>{state.lineCount}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 const NextPiece: React.FC = () => {
   const canvasRef = React.useRef<HTMLCanvasElement>(null);
   const [state] = React.useContext(GameContext);
@@ -475,7 +505,7 @@ const NextPiece: React.FC = () => {
         ref={canvasRef}
         width="160"
         height="160"
-        style={{ color: "white" }}
+        style={{ color: "white", border: "1px solid white" }}
       ></canvas>
     </Fragment>
   );
@@ -546,7 +576,9 @@ export const App = () => (
       <Container style={{ textAlign: "center" }} fluid>
         <h3 className="m-3">Tetris</h3>
         <Row>
-          <Col md={4}></Col>
+          <Col md={4}>
+            <Status />
+          </Col>
           <Col md={4}>
             <GameBoard />
           </Col>
