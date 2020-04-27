@@ -1,6 +1,6 @@
 # tetris-react-typescript
 
-Simple Atari Tetris game implemented with the Canvas API in React and TypeScript.
+Simple Nintendo Tetris game implemented with the Canvas API in React and TypeScript.
 
 ## Further Exploration
 
